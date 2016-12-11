@@ -1,0 +1,7 @@
+gunicorn_logfile = "/dev/null"
+gunicorn_loglevel = "error"
+
+debug = True
+timeout = 900000
+workers = 1
+worker_class = "sync"

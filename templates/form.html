@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Add New</title>
+<link rel="stylesheet" type="text/css" href="static/style.css" />
+<link rel="stylesheet" type="text/css" href="static/form.css" />
+</head>
+
+<body>
+<div id="errors">
+{{#errors}}
+<p class="validation"><b>{{message}}</b></p>
+{{/errors}}
+</div>
+<form action="save" method="post" class="postform">
+    <div class="fdiv">
+        <label class="label" for="title">Page Title:</label>
+        <input class="input" type="text" id="title" name="page_title" value="{{page_title}}"/>
+    </div>
+    <div class="fdiv">
+        <label class="label" for="description">Description:</label>
+        <textarea class="input" id="description" name="desc_text">{{desc_text}}</textarea>
+    </div>
+    <div class="fdiv">
+        <label class="label" for="webpage">URL:</label>
+        <input class="input" type="url" id="webage" name="url_address" value="{{url_address}}"/>
+    </div>
+    <div class="bdiv">
+        <!--<button type="submit">Submit</button>-->
+        <input class="button" type="submit" name="submit" value="Submit" />
+        
+    </div>
+</form>
+
+</body>
+
+</html>
