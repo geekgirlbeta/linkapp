@@ -1,4 +1,4 @@
-/* this is the CSS file bitches */
+/* this is the CSS file */
 * {
     margin: 0em;
     padding: 0em;
@@ -18,6 +18,11 @@ body {
     margin-bottom: 2em;
     margin-right: auto;
     margin-left: auto;
+}
+
+.author {
+    padding: 1em 1em 1em 1em;
+    font-size: 75%;
 }
 
 .entry h1 {

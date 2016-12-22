@@ -34,6 +34,7 @@ class AuthenticationMiddleware:
             decoded = base64.b64decode(hashed_pass)
             username, password = decoded.decode('utf-8').split(':')
             if environ['listapp.user_manager'].authenticate(username, password):
+                environ['listapp.loggedin'] = username
                 return self.application(environ, start_response)
             else:
                 start_response('401 Unauthorized', [('Content-Type', 'text/plain'), ('WWW-Authenticate', 'Basic realm="Test Thing"')])
@@ -104,7 +105,7 @@ def save(environ, start_response):
         start_response('200 OK', [('Content-Type', 'text/html')])
         return [html.encode('utf-8')]
     else:
-        environ['listapp.link_manager'].add(page_title, desc_text, url_address)
+        environ['listapp.link_manager'].add(page_title, desc_text, url_address, environ['listapp.loggedin'])
         redirect_to = 'http://%s%s' % (environ['HTTP_HOST'], environ['listapp.path_prefix']) 
         start_response('302 Found', [('Location', redirect_to)])
         return [redirect_to.encode('utf-8')]

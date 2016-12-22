@@ -3,6 +3,9 @@ Module for editing links to add, delete, modify and list data submitted.
 """
 import redis
 import hashlib
+from datetime import datetime
+
+CREATED_TIME_FORMAT = "%m-%d-%Y @ %H:%M"
 
 class LinkManager:
     
@@ -30,15 +33,20 @@ class LinkManager:
         
         return raw_id, redis_key
         
-    def add(self, page_title, desc_text, url_address):
+    def add(self, page_title, desc_text, url_address, author, created=None):
         """Add link to the database."""
         raw_id, redis_key = self.key(url_address)
+        
+        if created is None:
+            created = datetime.now()
         
         self.connection.hmset(redis_key, {
             'page_title': page_title, 
             'desc_text': desc_text, 
             'url_address': url_address,
-            'key': raw_id
+            'key': raw_id,
+            'author': author,
+            'created': created.strftime(CREATED_TIME_FORMAT)
         })
         
         return raw_id
@@ -47,7 +55,7 @@ class LinkManager:
         """Deleting a link from the database."""
         self.connection.delete(self.prefix_key(raw_id))
         
-    def modify(self, raw_id, page_title=None, desc_text=None, url_address=None):
+    def modify(self, raw_id, page_title=None, desc_text=None, url_address=None, author=None, created=None):
         """Modify an existing link in the database."""
         fields = {}
         
@@ -59,6 +67,12 @@ class LinkManager:
             
         if url_address is not None:
             fields['url_address'] = url_address
+            
+        if author is not None:
+            fields['author'] = author
+            
+        if created is not None:
+            fields['created'] = created.strftime(CREATED_TIME_FORMAT)
             
         if fields:
             return self.connection.hmset(self.prefix_key(raw_id), fields)
