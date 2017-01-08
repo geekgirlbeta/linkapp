@@ -149,6 +149,11 @@ def save(environ, start_response):
     # we're changing a link. Otherwise, we need to use add()
     theres_a_key = re.search("/([^/]{32})$", environ['PATH_INFO'])
     
+    if theres_a_key:
+        key = theres_a_key.group(1)
+    else:
+        key = None
+    
     post = cgi.FieldStorage(
             fp=environ['wsgi.input'],
             environ=environ,
@@ -169,15 +174,17 @@ def save(environ, start_response):
     if url_address is None or url_address == '':
         errors.append({'message':b'URL is a required field'})
         
+    if url_address:
+        if theres_a_key:
+            if environ['linkapp.link_manager'].url_changed(key, url_address) and environ['linkapp.link_manager'].url_exists(url_address):
+                errors.append({'message':b'URL has already been posted'})
+        elif environ['linkapp.link_manager'].url_exists(url_address):
+            errors.append({'message':b'URL has already been posted'})
+    
     tags = post.getvalue('tags', None)
     process_tags = set([x.strip() for x in tags.split('|')])
     if tags is None or tags == '' or not process_tags:
         errors.append({'message':b'Please enter at least one tag.'})
-        
-    
-    if url_address and environ['linkapp.link_manager'].url_exists(url_address):
-        errors.append({'message':b'URL has already been posted'})
-        
     
     if errors:
         context = {
@@ -189,12 +196,8 @@ def save(environ, start_response):
                 'tags': tags
             },
             'prefix': environ['linkapp.path_prefix'],
-            'key': None
+            'key': key
         }
-        
-        if theres_a_key:
-            key = theres_a_key.group(1)
-            context['key'] = key
         
         html = renderer.render_name('form', context)
         
@@ -202,8 +205,6 @@ def save(environ, start_response):
         return [html.encode('utf-8')]
     else:
         if theres_a_key:
-            key = theres_a_key.group(1)
-            
             environ['linkapp.link_manager'].modify(
                 key, 
                 page_title=page_title, 

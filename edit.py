@@ -125,18 +125,38 @@ class LinkManager:
             fields['tags'] = "|".join(tags)
             
         if fields:
-            
+            if fields.get("url_address", None):
+                comp_id, junk = self.key(url_address)
+                if comp_id == raw_id:
+                    rename = False
+                else:
+                    rename = True
+            else:
+                comp_id = None
+                rename = False
+                
             # TODO: consider doing this in the pipeline and putting a watch on the
             #       link's key in case it changes during processing.
-            
-            if fields.get("tags", None):
+            if fields.get("tags", None) or rename:
                 old_tags = self.connection.hmget(self.prefix_key(raw_id), 'tags')
                 old_tags = old_tags[0].split("|")
             else:
                 old_tags = []
-                
+            
+            # TODO: REFACTOR THIS LIKE WOAH
             with self.connection.pipeline() as pipe:
-                
+                if rename:
+                    pipe.rename(self.prefix_key(raw_id), self.prefix_key(comp_id))
+                    
+                    for existing_tag in old_tags:
+                        tag_key = 'tag:%s' % (existing_tag,)
+                        pipe.srem(tag_key, raw_id)
+                        pipe.sadd(tag_key, comp_id)
+                    
+                    fields["key"] = comp_id
+                    
+                    raw_id = comp_id
+                    
                 pipe.hmset(self.prefix_key(raw_id), fields)
                 
                 if fields.get("tags", None):
@@ -198,11 +218,22 @@ class LinkManager:
         """
         return self.connection.exists(self.prefix_key(raw_id))
         
-    def url_exists(self, url):
+    def url_exists(self, url_address):
         """
         Return True if there is a link in the database with the given url
         """
-        raw_id, key = self.key(url)
+        raw_id, key = self.key(url_address)
         
         return self.exists(raw_id)
+        
+    def url_changed(self, raw_id, url_address):
+        """
+        Returns True if the provided url is different than the one used to generate the raw_id
+        """
+        comp_id, junk = self.key(url_address)
+        if comp_id == raw_id:
+            return False
+        else:
+            return True
+        
         
