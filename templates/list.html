@@ -3,15 +3,38 @@
 <head>
 <meta charset="UTF-8">
 <title>List</title>
-<link rel="stylesheet" type="text/css" href="static/style.css" />
+<link rel="stylesheet" type="text/css" href="{{prefix}}static/style.css" />
 </head>
 
 <body>
+<div class="menu">
+<ul>
+<li><a href="{{prefix}}new">Add New</a></li>
+<li><a href="{{prefix}}">Home</a></li>
+</ul>
+</div>
+{{#tag}}
+<h1>Latest Posts Filed Under: <em>{{tag}}</em></h1>
+{{/tag}}
+{{^tag}}
+<h1>Latest Posts</h1>
+{{/tag}}
+
+
+
 {{#links}}
 <div class="entry">
     <h1><a href="{{url_address}}" target="_blank">{{page_title}}</a></h1>
     <p><div class="desc">{{desc_text}}</div></p>
-    <p class="author">{{author}} {{created}}</p>
+    <p>
+        <span class="tags">
+            {{#tags}}
+                <a href="{{prefix}}tag/{{name}}">{{name}}</a>
+            {{/tags}}
+        </span>
+        <span class="author">{{author}} {{created}}</span>
+    </p>
+    <p><div class="edit"><a href="{{prefix}}edit/{{key}}">edit</a></div></p>
 </div>
 {{/links}}
 </body>

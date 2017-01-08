@@ -1,18 +1,16 @@
 .postform {
     border: 0.1em solid #373F46;
     background-color: #BABDC1;
-    padding: 1em 1em 1em 1em;
     width: 60%;
     margin-right: auto;
     margin-left: auto;
-    margin-top: 2em;
     margin-bottom: 2em;
 }
 
 .fdiv {
     background-color: #979DA2;
     padding: 1em 1em 1em 1em;
-    margin: 1em 1em 1em 1em;
+    margin: 2em 2em 1em 2em;
     border: solid 0.1em #373F46;
 }
 
@@ -21,6 +19,11 @@
     padding: 1em 1em 0em 1em;
     margin: 1em 1em 1em 1em;
     overflow: auto;
+}
+
+.directions {
+    float: right;
+    color: #FFFFFF;
 }
 
 .validation {
@@ -80,3 +83,4 @@ textarea {
     font-size: 16pt;
     font-family: "Helvetica", "Verdana", "Arial", sans-serif;
 }
+

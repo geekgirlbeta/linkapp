@@ -7,22 +7,83 @@
 body {
     font: 14pt "Helvetica", "Verdana", "Arial", sans-serif;
     color: #373F46;
+    margin-top: 2em;
+    
+}
+
+.menu {
+    position: relative;
+    margin-right: auto;
+    margin-left: auto;
+    width: 60%;
+}
+
+.menu ul {
+	list-style-type: none;
+	position: absolute;
+	right: 0%;
+	top: 0%;
+	margin-top: 0.5em;
+}
+
+.menu li {
+    display: inline;
+    padding-right: 0.5em;
+    padding-left: 0.5em;
 }
 
 .entry {
     border: 1px solid #373F46;
+    position: relative;
     margin-bottom: 1.5em;
     padding: 0em 0em 0em 0em;
     width: 60%;
-    margin-top: 2em;
-    margin-bottom: 2em;
     margin-right: auto;
     margin-left: auto;
 }
 
 .author {
-    padding: 1em 1em 1em 1em;
+    padding: 0em 1em 0em 1em;
     font-size: 75%;
+    position: absolute;
+    right:0;
+    bottom: 0%;
+}
+
+.tags {
+    font-size: 12pt;
+}
+
+.edit {
+    font-size: 16pt;
+    position: absolute;
+    top: 0%;
+    right: 0;
+    padding: .50em 1em 0em 1em;
+}
+
+.tags a:link {
+    padding: 0em .15em 0em .50em;
+}
+
+a:link {
+    color: #373F46;
+    text-decoration: none;
+}
+
+a:visited {
+    color: #636364;
+    text-decoration: none;
+}
+
+a:hover {
+    color: #A1DAF9;
+    text-decoration: underline;
+}
+
+a:active {
+    color: #57BDF4;
+    text-decoration: underline;
 }
 
 .entry h1 {
@@ -54,4 +115,13 @@ body {
 
 .desc {
     padding: 1em 0.5em 1em 0.5em;
+}
+
+body > h1 {
+    font: 24pt "Helvetica", "Verdana", "Arial", sans-serif;
+    width: 60%;
+    margin-right: auto;
+    margin-left: auto;
+    margin-top: 0em;
+    margin-bottom: 0em;
 }
