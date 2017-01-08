@@ -19,7 +19,7 @@ def check_path(environ, path, start=False):
        useful if you are doing something with the parts of the path AFTER the 
        initial path (e.g. /edit/[id of thing to edit])
     """
-    check = "%s%s" % (environ['listapp.path_prefix'], path)
+    check = "%s%s" % (environ['linkapp.path_prefix'], path)
     
     if start:
         if environ['PATH_INFO'].startswith(check+"/"):
@@ -89,8 +89,8 @@ class AuthenticationMiddleware:
             auth_type, hashed_pass = environ['HTTP_AUTHORIZATION'].split(' ')
             decoded = base64.b64decode(hashed_pass)
             username, password = decoded.decode('utf-8').split(':')
-            if environ['listapp.user_manager'].authenticate(username, password):
-                environ['listapp.loggedin'] = username
+            if environ['linkapp.user_manager'].authenticate(username, password):
+                environ['linkapp.loggedin'] = username
                 return self.application(environ, start_response)
             else:
                 start_response('401 Unauthorized', [('Content-Type', 'text/plain'), ('WWW-Authenticate', 'Basic realm="Test Thing"')])
@@ -106,7 +106,7 @@ def new(environ, start_response):
         return [b'Bad Request, Method Not Supported']
         
     context = {
-       'prefix': environ['listapp.path_prefix'], 
+       'prefix': environ['linkapp.path_prefix'], 
        'link':True
     }
     
@@ -129,8 +129,8 @@ def edit(environ, start_response):
     
     # the first grouping in the regex is the id of the link post.
     context = {
-        'link': environ['listapp.link_manager'].list_one(match.group(1)),
-        'prefix': environ['listapp.path_prefix'],
+        'link': environ['linkapp.link_manager'].list_one(match.group(1)),
+        'prefix': environ['linkapp.path_prefix'],
         'key': match.group(1)
     }
     
@@ -175,7 +175,7 @@ def save(environ, start_response):
         errors.append({'message':b'Please enter at least one tag.'})
         
     
-    if url_address and environ['listapp.link_manager'].url_exists(url_address):
+    if url_address and environ['linkapp.link_manager'].url_exists(url_address):
         errors.append({'message':b'URL has already been posted'})
         
     
@@ -188,7 +188,7 @@ def save(environ, start_response):
                 'url_address': url_address,
                 'tags': tags
             },
-            'prefix': environ['listapp.path_prefix'],
+            'prefix': environ['linkapp.path_prefix'],
             'key': None
         }
         
@@ -204,30 +204,30 @@ def save(environ, start_response):
         if theres_a_key:
             key = theres_a_key.group(1)
             
-            environ['listapp.link_manager'].modify(
+            environ['linkapp.link_manager'].modify(
                 key, 
                 page_title=page_title, 
                 desc_text=desc_text, 
                 url_address=url_address, 
                 tags=process_tags, 
-                author=environ['listapp.loggedin'])
+                author=environ['linkapp.loggedin'])
         else:
             
-            environ['listapp.link_manager'].add(
+            environ['linkapp.link_manager'].add(
                 page_title=page_title, 
                 desc_text=desc_text, 
                 url_address=url_address, 
                 tags=process_tags, 
-                author=environ['listapp.loggedin'])
+                author=environ['linkapp.loggedin'])
         
-        redirect_to = 'http://%s%s' % (environ['HTTP_HOST'], environ['listapp.path_prefix']) 
+        redirect_to = 'http://%s%s' % (environ['HTTP_HOST'], environ['linkapp.path_prefix']) 
         start_response('302 Found', [('Location', redirect_to)])
         return [redirect_to.encode('utf-8')]
     
 def listing(environ, start_response): 
     context = { 
-        'links': environ['listapp.link_manager'].listing(tag_func=hash_to_linkwrapper),
-        'prefix': environ['listapp.path_prefix']
+        'links': environ['linkapp.link_manager'].listing(tag_func=hash_to_linkwrapper),
+        'prefix': environ['linkapp.path_prefix']
     }
     
     html = renderer.render_name('list', context)
@@ -238,8 +238,8 @@ def listing(environ, start_response):
 def listing_by_tag(environ, start_response):
     tag = environ['PATH_INFO'].split("/")[-1]
     context = { 
-        'links': environ['listapp.link_manager'].listing(tag, tag_func=hash_to_linkwrapper),
-        'prefix': environ['listapp.path_prefix'],
+        'links': environ['linkapp.link_manager'].listing(tag, tag_func=hash_to_linkwrapper),
+        'prefix': environ['linkapp.path_prefix'],
         'tag': tag
     }
     
@@ -253,7 +253,7 @@ def static(environ, start_response):
     # TODO: decide how we want the browser to cache the static content
     #       see: cache-control headers.
     
-    path = environ['PATH_INFO'].replace(environ['listapp.path_prefix'], "", 1)
+    path = environ['PATH_INFO'].replace(environ['linkapp.path_prefix'], "", 1)
     parts = path.split("/")
     parts = parts[1:]
     
@@ -297,7 +297,7 @@ def main(environ, start_response):
         return listing(environ, start_response)
     elif check_path(environ, "tag", True):
         return listing_by_tag(environ, start_response)
-    elif environ['PATH_INFO'].startswith("%sstatic" % (environ['listapp.path_prefix'],)):
+    elif environ['PATH_INFO'].startswith("%sstatic" % (environ['linkapp.path_prefix'],)):
         return static(environ, start_response)
     elif check_path(environ, "new"):
         return auth_new(environ, start_response)
@@ -314,15 +314,15 @@ class AppFactory:
     Configure and return the main WSGI app for this application.
     """
     
-    def __init__(self, redis_host='localhost', redis_port=6379, redis_db=0, path_prefix="/listapp/"):
+    def __init__(self, redis_host='localhost', redis_port=6379, redis_db=0, path_prefix="/linkapp/"):
         self.link_manager = LinkManager(redis_host, redis_port, redis_db)
         self.um = user.UserManager(redis_host, redis_port, redis_db)
         self.path_prefix = path_prefix
         
     def __call__(self, environ, start_response):
-        environ['listapp.link_manager'] = self.link_manager
-        environ['listapp.path_prefix'] = self.path_prefix
-        environ['listapp.user_manager'] = self.um
+        environ['linkapp.link_manager'] = self.link_manager
+        environ['linkapp.path_prefix'] = self.path_prefix
+        environ['linkapp.user_manager'] = self.um
         return main(environ, start_response)
         
         

@@ -12,7 +12,7 @@ Application for gathering links shared into a database.
     
 # Running
 
-    $ gunicorn wsgilistapp:app
+    $ gunicorn wsgilinkapp:app
     
 # How To Configure
 
