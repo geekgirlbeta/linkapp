@@ -36,8 +36,9 @@ class LinkWrapper:
     """
     Convenience class for wrapping raw redis data for Mustache use
     """
-    def __init__(self, tags='', **kwargs):
+    def __init__(self, tags='', page_title='', **kwargs):
         self._tags = tags
+        self._page_title = page_title
         
         for key, value in kwargs.items():
             setattr(self, key, value)
@@ -49,14 +50,12 @@ class LinkWrapper:
         """
         return [{"name": x} for x in self._tags.split("|")]
         
-        
 def hash_to_linkwrapper(response, **options):
     """
     Takes a redis response list (result from HGETALL) and returns a LinkWrapper
     object that can be used in Mustache templates in place of the typical 
     dictionary that redis-py returns.
     """
-    
     # if the response is false, an empty string or empty list, etc, 
     # return a dictionary - this is OK for mustache
     if not response:
@@ -72,9 +71,11 @@ def hash_to_linkwrapper(response, **options):
     
     # SUPER CHEEKY
     attributes = dict(zip(it, it))
-    
+
     # make each member of the dictionary into a keyword argument to pass
     # to the LinkWrapper constructor.
+    # equilivent to:
+    #   LinkWrapper(author='admin', page_title='Testing Number Two', tags='new|test|tags', etc)
     return LinkWrapper(**attributes)
 
 class AuthenticationMiddleware:
@@ -237,12 +238,21 @@ def listing(environ, start_response):
     return [html.encode('utf-8')]
     
 def listing_by_tag(environ, start_response):
-    tag = environ['PATH_INFO'].split("/")[-1]
+    # To support unicode paths (e.g. emoji in tags), 
+    # we need to un-encode the path, then re-encode it as uft-8
+    # source: https://bugs.python.org/msg177450
+    encoded = environ['PATH_INFO'].encode("ISO-8859-1")
+    new_path = encoded.decode('utf-8')
+    
+    tag = new_path.split("/")[-1]
+    
     context = { 
         'links': environ['linkapp.link_manager'].listing(tag, tag_func=hash_to_linkwrapper),
         'prefix': environ['linkapp.path_prefix'],
         'tag': tag
     }
+    
+    
     
     html = renderer.render_name('list', context)
 
@@ -323,7 +333,8 @@ class AppFactory:
     def __call__(self, environ, start_response):
         environ['linkapp.link_manager'] = self.link_manager
         environ['linkapp.path_prefix'] = self.path_prefix
-        environ['linkapp.user_manager'] = self.um
+        environ['linkapp.user_manager'] = self.um 
+        
         return main(environ, start_response)
         
         
