@@ -36,9 +36,8 @@ class LinkWrapper:
     """
     Convenience class for wrapping raw redis data for Mustache use
     """
-    def __init__(self, tags='', page_title='', **kwargs):
+    def __init__(self, tags='', **kwargs):
         self._tags = tags
-        self._page_title = page_title
         
         for key, value in kwargs.items():
             setattr(self, key, value)
