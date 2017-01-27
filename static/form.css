@@ -84,3 +84,16 @@ textarea {
     font-family: "Helvetica", "Verdana", "Arial", sans-serif;
 }
 
+/* this is for overrides for jquery-ui */
+
+ul.tagit {
+    margin-left: 0px;
+    margin-right: 0px;
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+    border-bottom-right-radius: 0px;
+    border-bottom-left-radius: 0px;
+    border-top-right-radius: 0px;
+    border-top-left-radius: 0px;
+    border: 1px solid #373F46 !important;
+}

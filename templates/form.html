@@ -3,8 +3,26 @@
 <head>
 <meta charset="UTF-8">
 <title>Add New</title>
+
+<link rel="stylesheet" type="text/css" href="{{prefix}}static/js/jquery-ui.css" />
+<link rel="stylesheet" type="text/css" href="{{prefix}}static/js/tag-it/jquery.tagit.css" />
 <link rel="stylesheet" type="text/css" href="{{prefix}}static/style.css" />
 <link rel="stylesheet" type="text/css" href="{{prefix}}static/form.css" />
+
+<script src="{{prefix}}static/js/external/jquery/jquery.js"></script>
+<script src="{{prefix}}static/js/jquery-ui.js"></script>
+<script src="{{prefix}}static/js/tag-it/tag-it.min.js"></script>
+<script>
+$(document).ready(function() {
+        $('input[name=tags]').tagit({
+                // availableTags: sampleTags,
+                singleField: true,
+                singleFieldDelimiter: "|",
+                allowSpaces: true
+            });
+});
+</script>
+
 </head>
 
 <body>
@@ -47,7 +65,7 @@
         <input class="input" type="url" id="webage" name="url_address" value="{{url_address}}"/>
     </div>
     <div class="fdiv">
-        <div class="directions">Tags must be separated with a pipe (&nbsp;|&nbsp;).</div>
+        <div class="directions">Hit enter to add tag.</div>
         <label class="label" for="tags">Tags:</label>
         <input class="input" type="text" id="tags" name="tags" value="{{tags}}"/>
     </div>

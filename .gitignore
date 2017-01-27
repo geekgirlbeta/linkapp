@@ -96,3 +96,7 @@ ENV/
 
 # Temporary editor files
 *~
+\#*#
+
+# Operating System Files
+.DS_Store
