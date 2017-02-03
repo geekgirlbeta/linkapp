@@ -6,6 +6,7 @@ import hashlib
 from datetime import datetime
 
 CREATED_TIME_FORMAT = "%m-%d-%Y @ %H:%M"
+BEGINNING_OF_TIME = datetime(1975, 11, 16, 20, 12, 0)
 
 def pipeline_monkeypatch(self, transaction=True, shard_hint=None):
         """
@@ -75,13 +76,19 @@ class LinkManager:
                 'tags': "|".join(tags)
             })
             
+            # timedelta
+            score = created - BEGINNING_OF_TIME
+            
             for tag in tags:
                 tag_id = 'tag:%s' % (tag,)
-                pipe.sadd(tag_id, raw_id)
+                pipe.zadd(tag_id, score.total_seconds(), raw_id)
                 
+            pipe.zadd("sorted:date", score.total_seconds(), raw_id)
+            
             pipe.execute()
             
         return raw_id
+        
         
     def delete(self, raw_id):
         """Deleting a link from the database."""
@@ -92,14 +99,39 @@ class LinkManager:
         # TODO: Consider adding a watch on the link key during deletion.
         with self.connection.pipeline() as pipe:
             for tag in tags:
-                pipe.srem('tag:%s' % (tag,), raw_id)
+                pipe.zrem('tag:%s' % (tag,), raw_id)
                 
             pipe.delete(self.prefix_key(raw_id))
+            pipe.zrem("sorted:date", raw_id)
             pipe.execute() 
             
         
+    def rename(self, raw_id, new_url):
+        """
+        Delete and re-add a link when the url has changed.
+        
+        TODO: this is only temporary, we will switch to using a random key ASAP.
+        """
+        existing = self.list_one(raw_id)[0]
+        
+        self.delete(raw_id)
+        
+        created = datetime.strptime(existing['created'], CREATED_TIME_FORMAT)
+        tags = existing['tags'].split("|")
+        
+        return self.add(page_title=existing['page_title'], 
+                        desc_text=existing['desc_text'], 
+                        url_address=new_url, 
+                        author=existing['author'], 
+                        tags=tags, 
+                        created=created)
+        
+        
+        
     def modify(self, raw_id, page_title=None, desc_text=None, url_address=None, author=None, created=None, tags=None):
         """Modify an existing link in the database."""
+        # TODO: REFACTOR THIS LIKE WOAH
+        
         fields = {}
         
         if page_title is not None:
@@ -115,6 +147,7 @@ class LinkManager:
             fields['author'] = author
             
         if created is not None:
+            # TODO: update sorted set if this changes
             fields['created'] = created.strftime(CREATED_TIME_FORMAT)
             
         if tags is not None:
@@ -127,46 +160,30 @@ class LinkManager:
         if fields:
             if fields.get("url_address", None):
                 comp_id, junk = self.key(url_address)
-                if comp_id == raw_id:
-                    rename = False
-                else:
-                    rename = True
-            else:
-                comp_id = None
-                rename = False
+                if comp_id != raw_id:
+                    raw_id = self.rename(raw_id, url_address)
                 
             # TODO: consider doing this in the pipeline and putting a watch on the
             #       link's key in case it changes during processing.
-            if fields.get("tags", None) or rename:
+            if fields.get("tags", None):
                 old_tags = self.connection.hmget(self.prefix_key(raw_id), 'tags')
                 old_tags = old_tags[0].split("|")
+                score = self.connection.zscore("sorted:date", raw_id)
             else:
                 old_tags = []
+                score = None
             
-            # TODO: REFACTOR THIS LIKE WOAH
             with self.connection.pipeline() as pipe:
-                if rename:
-                    pipe.rename(self.prefix_key(raw_id), self.prefix_key(comp_id))
-                    
-                    for existing_tag in old_tags:
-                        tag_key = 'tag:%s' % (existing_tag,)
-                        pipe.srem(tag_key, raw_id)
-                        pipe.sadd(tag_key, comp_id)
-                    
-                    fields["key"] = comp_id
-                    
-                    raw_id = comp_id
-                    
                 pipe.hmset(self.prefix_key(raw_id), fields)
                 
                 if fields.get("tags", None):
                     for existing_tag in old_tags:
                         tag_key = 'tag:%s' % (existing_tag,)
-                        pipe.srem(tag_key, raw_id)
+                        pipe.zrem(tag_key, raw_id)
                         
                     for tag in tags:
                         tag_key = 'tag:%s' % (tag,)
-                        pipe.sadd(tag_key, raw_id)
+                        pipe.sadd(tag_key, score, raw_id)
                
                 return pipe.execute()
         else:
@@ -174,7 +191,9 @@ class LinkManager:
             
         
     def list_one(self, raw_id, tag_func=None):
-        """Retrieves a single link from the database"""
+        """Retrieves a single link from the database
+        
+           TODO: shouldn't return a list"""
         with self.connection.pipeline() as pipe:
             if tag_func:
                 pipe.set_response_callback('HGETALL', tag_func)
@@ -190,11 +209,20 @@ class LinkManager:
         if tags:
             tag_keys = ['tag:%s' % (x,) for x in tags]
             
-            raw_ids = self.connection.sinter(*tag_keys)
+            with self.connection.pipeline() as pipe:
+                stored_at = "tag:%s:sorted" % ("|".join(tags))
+                pipe.zinterstore(stored_at, tag_keys, "MAX")
+                pipe.zrevrange(stored_at, 0, -1)
+                pipe.delete(stored_at)
+                result = pipe.execute()
+                
+                raw_ids = result[1]
             
-            keys = [self.prefix_key(x) for x in raw_ids]
         else:
-            keys = self.connection.keys("link:*")
+            # keys = self.connection.keys("link:*")
+            raw_ids = self.connection.zrevrange("sorted:date", 0, -1)
+            
+        keys = [self.prefix_key(x) for x in raw_ids]
         
         # TODO: Should we turn off transactions for this pipeline?
         with self.connection.pipeline() as pipe:
