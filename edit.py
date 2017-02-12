@@ -205,7 +205,11 @@ class LinkManager:
             return result
         
     def listing(self, *tags, tag_func=None):
-        """Retrieving a list of links from database."""
+        """Retrieving a list of links from database.
+        
+            TODO: Change the name listing to something that describes more than one.
+            This sounds like a single listing like in the newspaper.
+        """
         if tags:
             tag_keys = ['tag:%s' % (x,) for x in tags]
             

@@ -34,13 +34,16 @@ class UserManager:
         else:
             return False
         
-    def add(self, username, password):
+    def add(self, username, password, encrypted=False):
         """Add user to the database."""
         redis_key = self.prefix_key(username)
         
+        if not encrypted:
+            password = self.encrypt(password)
+            
         self.connection.hmset(redis_key, {
             'username':username,
-            'password':self.encrypt(password)
+            'password':password
         })
         
         return username
@@ -49,11 +52,14 @@ class UserManager:
         """Deleting a user from the database."""
         self.connection.delete(self.prefix_key(username))
         
-    def modify(self, username, password):
+    def modify(self, username, password, encrypted=False):
         """Modify an existing user in the database."""
+        if not encrypted:
+            password = self.encrypt(password)
+
         self.connection.hmset(
             self.prefix_key(username), 
-            {'password':self.encrypt(password)})
+            {'password':password})
         
     def list_one(self, username):
         """Retrieves a single user from the database"""

@@ -7,9 +7,12 @@ File contains single list of links stored as a dictionary.
 
 import edit
 import json
+import user
 
 lm = edit.LinkManager()
-lm.listing()
+um = user.UserManager()
 
 with open("data_backup.json", "w") as backup:
-    json.dump(lm.listing(), backup)
+    export = {"users":um.listing(), "links":lm.listing()}
+    json.dump(export, backup)
+    
