@@ -33,6 +33,7 @@ class LinkManager:
             port=self.port, 
             db=self.db)
         
+
     def prefix_key(self, raw_id):
         """Put the prefix on the key"""
         return "link:%s" % (raw_id,)
@@ -58,7 +59,8 @@ class LinkManager:
             raise Exception('Tags must be a list, set, tuple, etc.')
             
         #taking out excess white space and removing any duplicates.
-        tags = set([x.strip() for x in tags])
+        tags = list(set([x.strip() for x in tags]))
+        tags.sort()
         
         
         if not tags:
@@ -67,13 +69,13 @@ class LinkManager:
         with self.connection.pipeline() as pipe:
         
             pipe.hmset(redis_key, {
-                'page_title': page_title, 
-                'desc_text': desc_text, 
-                'url_address': url_address,
-                'key': raw_id,
-                'author': author,
-                'created': created.strftime(CREATED_TIME_FORMAT), 
-                'tags': "|".join(tags)
+                    'page_title': page_title, 
+                    'desc_text': desc_text, 
+                    'url_address': url_address,
+                    'key': raw_id,
+                    'author': author,
+                    'created': created.strftime(CREATED_TIME_FORMAT), 
+                    'tags': "|".join(tags)
             })
             
             # timedelta
@@ -151,7 +153,9 @@ class LinkManager:
             fields['created'] = created.strftime(CREATED_TIME_FORMAT)
             
         if tags is not None:
-            tags = set([x.strip() for x in tags])
+            # TODO: change the set to a set comprehension
+            tags = list(set([x.strip() for x in tags]))
+            tags.sort()
             if not tags:
                 raise Exception('At least one tag must be provided.')
             

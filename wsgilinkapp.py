@@ -116,7 +116,10 @@ def new(environ, start_response):
     return [html.encode('utf-8')]
 
 def edit(environ, start_response):
-    """This wsgi app gives the form to be filled out."""
+    """This wsgi app gives the form to be filled out.
+    
+    TODO: If key is passed but not found in the database it should return a 404.
+    """
     if environ['REQUEST_METHOD'] != 'GET':
         start_response('400 Bad Request', [('Content-Type', 'text/plain')])
         return [b'Bad Request, Method Not Supported']
@@ -182,9 +185,11 @@ def save(environ, start_response):
             errors.append({'message':b'URL has already been posted'})
     
     tags = post.getvalue('tags', None)
-    process_tags = set([x.strip() for x in tags.split('|')])
-    if tags is None or tags == '' or not process_tags:
+    
+    if tags is None or tags == '':
         errors.append({'message':b'Please enter at least one tag.'})
+    else:
+        process_tags = set([x.strip() for x in tags.split('|')])
     
     if errors:
         context = {
@@ -225,7 +230,12 @@ def save(environ, start_response):
         start_response('302 Found', [('Location', redirect_to)])
         return [redirect_to.encode('utf-8')]
     
-def listing(environ, start_response): 
+def listing(environ, start_response):
+    
+    if environ['REQUEST_METHOD'] != 'GET':
+        start_response('400 Bad Request', [('Content-Type', 'text/plain')])
+        return [b'Bad Request, Method Not Supported']
+        
     context = { 
         'links': environ['linkapp.link_manager'].listing(tag_func=hash_to_linkwrapper),
         'prefix': environ['linkapp.path_prefix']
@@ -237,6 +247,11 @@ def listing(environ, start_response):
     return [html.encode('utf-8')]
     
 def listing_by_tag(environ, start_response):
+    
+    if environ['REQUEST_METHOD'] != 'GET':
+        start_response('400 Bad Request', [('Content-Type', 'text/plain')])
+        return [b'Bad Request, Method Not Supported']
+        
     # To support unicode paths (e.g. emoji in tags), 
     # we need to un-encode the path, then re-encode it as uft-8
     # source: https://bugs.python.org/msg177450
