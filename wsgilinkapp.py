@@ -8,6 +8,7 @@ import mimetypes
 import base64
 import user
 import re
+import math
 
 renderer = pystache.Renderer(search_dirs='./templates', file_extension='html')
 
@@ -141,6 +142,34 @@ def edit(environ, start_response):
     
     start_response('200 OK', [('Content-Type', 'text/html')])
     return [html.encode('utf-8')]
+    
+def one_post(environ, start_response):
+    """This wsgi app gives one post at a time for viewing.
+    
+    TODO: If key is passed but not found in the database it should return a 404.
+    """
+    if environ['REQUEST_METHOD'] != 'GET':
+        start_response('400 Bad Request', [('Content-Type', 'text/plain')])
+        return [b'Bad Request, Method Not Supported']
+
+    match = re.search("/([^/]{32})$", environ['PATH_INFO'])
+    
+    if not match:
+        start_response('404 Not Found', [('Content-Type', 'text/plain')])
+        return [b'Not Found']
+    
+    # the first grouping in the regex is the id of the link post.
+    context = {
+        'one_post': environ['linkapp.link_manager'].list_one(match.group(1)),
+        'prefix': environ['linkapp.path_prefix'],
+        'key': match.group(1)
+    }
+    
+    html = renderer.render_name('one_post', context)
+    
+    start_response('200 OK', [('Content-Type', 'text/html')])
+    return [html.encode('utf-8')]
+    
 
 def save(environ, start_response):
     """This wsgi app sends the collected data back to the client."""
@@ -235,11 +264,44 @@ def listing(environ, start_response):
     if environ['REQUEST_METHOD'] != 'GET':
         start_response('400 Bad Request', [('Content-Type', 'text/plain')])
         return [b'Bad Request, Method Not Supported']
+    
+    per_page = 10
+    page = environ['PATH_INFO'].split("/")[-1]
+    
+    try:
+        page = int(page)
+    except ValueError:
+        page = 1
+        
+    if page <= 0:
+        redirect_to = 'http://%s%s' % (environ['HTTP_HOST'], environ['linkapp.path_prefix']) 
+        start_response('302 Found', [('Location', redirect_to)])
+        return []
+        
+    stop = page*per_page-1
+    start = page*per_page-per_page
+    
+    print(start, stop)
+    
+    next = page+1
+    previous = page-1
+    
+    count = environ['linkapp.link_manager'].count()
+    last = int(math.ceil(count/per_page))
         
     context = { 
-        'links': environ['linkapp.link_manager'].listing(tag_func=hash_to_linkwrapper),
-        'prefix': environ['linkapp.path_prefix']
+        'links': environ['linkapp.link_manager'].listing(tag_func=hash_to_linkwrapper, start=start, stop=stop),
+        'count': count,
+        'last': last,
+        'prefix': environ['linkapp.path_prefix'],
     }
+    
+    if page > 1:
+        # making previous a string so mustache won't think its false.
+        context['previous'] = str(previous)
+        
+    if page != last:
+        context['next'] = str(next)
     
     html = renderer.render_name('list', context)
 
@@ -260,12 +322,52 @@ def listing_by_tag(environ, start_response):
     
     tag = new_path.split("/")[-1]
     
+    print(tag)
+    if "," in tag:
+        tag, page = tag.split(",", 1)
+        
+        print(tag)
+        print(page)
+        
+        try:
+            page = int(page)
+        except ValueError:
+            page = 1
+    else:
+        page = 1
+        
+    
+    per_page = 10
+
+    stop = page*per_page-1
+    start = page*per_page-per_page
+    
+    next = page+1
+    previous = page-1
+    
+    
+    if page <= 0:
+        redirect_to = 'http://%s%s' % (environ['HTTP_HOST'], environ['linkapp.path_prefix']) 
+        start_response('302 Found', [('Location', redirect_to)])
+        return []
+    
+    count = environ['linkapp.link_manager'].count(tag)
+    last = int(math.ceil(count/per_page))
+    
     context = { 
-        'links': environ['linkapp.link_manager'].listing(tag, tag_func=hash_to_linkwrapper),
+        'links': environ['linkapp.link_manager'].listing(tag, tag_func=hash_to_linkwrapper, start=start, stop=stop),
         'prefix': environ['linkapp.path_prefix'],
-        'tag': tag
+        'tag': tag,
+        'last': last,
+        'count': count
     }
     
+    if page > 1:
+        # making previous a string so mustache won't think its false.
+        context['previous'] = str(previous)
+        
+    if page != last:
+        context['next'] = str(next)
     
     
     html = renderer.render_name('list', context)
@@ -320,6 +422,8 @@ auth_edit = AuthenticationMiddleware(edit)
 def main(environ, start_response):
     if check_path(environ, ""):
         return listing(environ, start_response)
+    if check_path(environ, "page", True):
+        return listing(environ, start_response)
     elif check_path(environ, "tag", True):
         return listing_by_tag(environ, start_response)
     elif environ['PATH_INFO'].startswith("%sstatic" % (environ['linkapp.path_prefix'],)):
@@ -330,6 +434,8 @@ def main(environ, start_response):
         return auth_save(environ, start_response)
     elif check_path(environ, "edit", True):
         return auth_edit(environ, start_response)
+    elif check_path(environ, "view", True):
+        return one_post(environ, start_response)
     else:
         start_response('404 Not Found', [('Content-Type', 'text/plain')])
         return [b'Not Found']

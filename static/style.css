@@ -8,7 +8,7 @@ body {
     font: 14pt "Helvetica", "Verdana", "Arial", sans-serif;
     color: #373F46;
     margin-top: 2em;
-    
+    margin-bottom: 2em;
 }
 
 .menu {
@@ -42,6 +42,10 @@ body {
     margin-left: auto;
 }
 
+.links > div:last-of-type {
+    margin-bottom: 0em;
+}
+
 .author {
     padding: 0em 1em 0em 1em;
     font-size: 75%;
@@ -54,12 +58,19 @@ body {
     font-size: 12pt;
 }
 
-.edit {
+ul.buttons {
+    list-style-type: none;
     font-size: 16pt;
+    margin: 0;
+    padding: 0;
     position: absolute;
     top: 0%;
     right: 0;
     padding: .50em 1em 0em 1em;
+}
+
+.buttons li {
+    display: inline;
 }
 
 .tags a:link {
@@ -91,6 +102,7 @@ a:active {
     padding: 0.25em;
     background-color: #979DA2;
     font-size: 150%;
+    padding-right: 6em;
 }
 
 .entry h1 a {
@@ -124,4 +136,29 @@ body > h1 {
     margin-left: auto;
     margin-top: 0em;
     margin-bottom: 0em;
+}
+
+.page-count {
+    width: 60%;
+    margin-right: auto;
+    margin-left: auto;
+    text-align: center;
+}
+
+ul.page-nav {
+    width: 60%;
+    margin-right: auto;
+    margin-left: auto;
+    list-style-type: none;
+    font-size: 16pt;
+    padding: 0px;
+    text-align: justify;
+}
+
+.page-nav li {
+    display: inline;
+}
+
+li.next {
+    float: right;
 }

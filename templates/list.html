@@ -21,7 +21,7 @@
 {{/tag}}
 
 
-
+<div class="links">
 {{#links}}
 <div class="entry">
     <h1><a href="{{url_address}}" target="_blank">{{page_title}}</a></h1>
@@ -34,9 +34,45 @@
         </span>
         <span class="author">{{author}} {{created}}</span>
     </p>
-    <p><div class="edit"><a href="{{prefix}}edit/{{key}}">edit</a></div></p>
+    <div>
+        <ul class="buttons">
+            <li class="edit"><a href="{{prefix}}edit/{{key}}">edit</a></li>
+            <li class="view"><a href="{{prefix}}view/{{key}}">view</a></li>
+        </ul>
+    </div>
+    <!-- <div class="buttons">
+        <div class="edit"><a href="{{prefix}}edit/{{key}}">edit</a></div>
+        <div class="view"><a href="{{prefix}}view/{{key}}">view</a></div>
+    </div> -->
 </div>
 {{/links}}
+</div>
+
+<div class="page-count">
+    {{last}} pages, {{count}} items.
+</div>
+
+{{#tag}}
+<ul class="page-nav">
+    
+    {{#previous}}
+    <li class="previous"><a href="{{prefix}}tag/{{tag}},{{previous}}">&larr; Previous</a></li>
+    {{/previous}}
+    {{#next}}
+    <li class="next"><a href="{{prefix}}tag/{{tag}},{{next}}">Next &rarr;</a></li>
+    {{/next}}
+</ul>
+{{/tag}}
+{{^tag}}
+<ul class="page-nav">
+    {{#previous}}
+    <li class="previous"><a href="{{prefix}}page/{{previous}}">&larr; Previous</a></li>
+    {{/previous}}
+    {{#next}}
+    <li class="next"><a href="{{prefix}}page/{{next}}">Next &rarr;</a></li>
+    {{/next}}
+</ul>
+{{/tag}}
 </body>
 
 </html>

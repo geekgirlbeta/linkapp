@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>List</title>
+<link rel="stylesheet" type="text/css" href="{{prefix}}static/style.css" />
+</head>
+
+<body>
+<div class="menu">
+<ul>
+<li><a href="{{prefix}}new">Add New</a></li>
+<li><a href="{{prefix}}">Home</a></li>
+</ul>
+</div>
+
+{{#one_post}}
+<h1>View Link</h1>
+<div class="entry">
+    <h1><a href="{{url_address}}" target="_blank">{{page_title}}</a></h1>
+    <p><div class="desc">{{desc_text}}</div></p>
+    <p>
+        <span class="tags">
+            {{#tags}}
+                <a href="{{prefix}}tag/{{name}}">{{name}}</a>
+            {{/tags}}
+        </span>
+        <span class="author">{{author}} {{created}}</span>
+    </p>
+    <div>
+        <ul class="buttons">
+            <li class="edit"><a href="{{prefix}}edit/{{key}}">edit</a></li>
+        </ul>
+    </div>
+</div>
+{{/one_post}}
+</body>
+
+</html>

@@ -208,27 +208,67 @@ class LinkManager:
             
             return result
         
-    def listing(self, *tags, tag_func=None):
+    def _tag_intersect(self, tags, command, start=0, stop=-1):
+        """
+        Helper function to work with the intersection of multiple tag ordered
+        sets.
+        
+        tags is a list of tag names
+        command is what to do, either:
+           - count, to run zcard on the intersection
+           - keys, to return a list of all the keys in the intersection (zrevrange)
+           
+        TODO: consider letting the intersection persist for a while so we aren't 
+              creating it over and over
+        """
+        if not command in ['count', 'keys']:
+            raise ValueError("command must be 'count' or 'keys'")
+        
+        with self.connection.pipeline() as pipe:
+            tag_keys = ['tag:%s' % (x,) for x in tags]
+            stored_at = "tag:%s:sorted" % ("|".join(tags))
+            pipe.zinterstore(stored_at, tag_keys, "MAX")
+            
+            if command == 'count':
+                pipe.zcard(stored_at)
+            elif command == 'keys':
+                pipe.zrevrange(stored_at, start, stop)
+                
+            pipe.delete(stored_at)
+            result = pipe.execute()
+            
+            return result[1]
+        
+    def count(self, *tags):
+        """
+        Count the number of links in the database.
+        """
+        if len(tags) > 1:
+            return self._tag_intersect(tags, 'count')
+            
+        elif len(tags) == 1:
+            key = 'tag:%s' % (tags[0],)
+            return self.connection.zcard(key)
+        else:
+            key = "sorted:date"
+            return self.connection.zcard(key)
+            
+        
+        
+    def listing(self, *tags, tag_func=None, start=0, stop=-1):
         """Retrieving a list of links from database.
         
             TODO: Change the name listing to something that describes more than one.
             This sounds like a single listing like in the newspaper.
+            
+            TODO: don't bother doing the intersection if there's just one tag.
         """
         if tags:
-            tag_keys = ['tag:%s' % (x,) for x in tags]
-            
-            with self.connection.pipeline() as pipe:
-                stored_at = "tag:%s:sorted" % ("|".join(tags))
-                pipe.zinterstore(stored_at, tag_keys, "MAX")
-                pipe.zrevrange(stored_at, 0, -1)
-                pipe.delete(stored_at)
-                result = pipe.execute()
-                
-                raw_ids = result[1]
+            raw_ids = self._tag_intersect(tags, 'keys', start=start, stop=stop)
             
         else:
             # keys = self.connection.keys("link:*")
-            raw_ids = self.connection.zrevrange("sorted:date", 0, -1)
+            raw_ids = self.connection.zrevrange("sorted:date", start, stop)
             
         keys = [self.prefix_key(x) for x in raw_ids]
         
