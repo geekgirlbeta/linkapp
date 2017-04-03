@@ -329,6 +329,20 @@ class ListingTest(unittest.TestCase):
         resp = app.post("/path", status='4**')
         self.assertEqual(resp.status_int, 400)
         
+    def test_listing_bad_page_number(self):
+        
+        mocked_lm, app = self.mocked_app()
+        
+        resp = app.get("/-1", status='3**')
+        self.assertEqual(resp.status_int, 302)
+        
+        resp = app.get("/0", status='3**')
+        self.assertEqual(resp.status_int, 302)
+        
+        # Should default to main page if a non-integer is given.
+        resp = app.get("/a", status='2**')
+        self.assertEqual(resp.status_int, 200)
+        
         
 class ListingByTagTest(unittest.TestCase):
     """
@@ -359,3 +373,61 @@ class ListingByTagTest(unittest.TestCase):
         
         resp = app.post("/path/tagged", status='4**')
         self.assertEqual(resp.status_int, 400)
+        
+        
+    def test_listing_by_tag_bad_page_number(self):
+        
+        mocked_lm, app = self.mocked_app()
+        
+        resp = app.get("/path/tagged,-1", status='3**')
+        self.assertEqual(resp.status_int, 302)
+        
+        resp = app.get("/path/tagged,0", status='3**')
+        self.assertEqual(resp.status_int, 302)
+        
+        # Should default to main page if a non-integer is given.
+        resp = app.get("/path/tagged,a", status='2**')
+        self.assertEqual(resp.status_int, 200)
+        
+        resp = app.get("/path/tagged,", status='2**')
+        self.assertEqual(resp.status_int, 200)
+        
+        
+class OnePostTest(unittest.TestCase):
+    """
+    Testing wsgilinkapp.one_post
+    """
+    
+    def mocked_app(self):
+        mocked_lm = MagicMock()
+        
+        app = TestApp(wsgilinkapp.one_post, 
+            extra_environ={
+                'linkapp.path_prefix': '/linkapp/', 
+                'linkapp.link_manager': mocked_lm})
+        
+        return mocked_lm, app
+    
+    
+    def test_one_post_happy_path(self):
+        
+        mocked_lm, app = self.mocked_app()
+        
+        resp = app.get("/path/" + ("x"*32))
+        self.assertEqual(resp.status_int, 200)
+        
+        
+    def test_one_post_wrong_method(self):
+        
+        mocked_lm, app = self.mocked_app()
+        
+        resp = app.post("/path", status='4**')
+        self.assertEqual(resp.status_int, 400)
+        
+        
+    def test_one_post_wrong_key(self):
+        
+        mocked_lm, app = self.mocked_app()
+        
+        resp = app.get("/path", status='4**')
+        self.assertEqual(resp.status_int, 404)

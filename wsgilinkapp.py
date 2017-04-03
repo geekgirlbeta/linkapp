@@ -281,8 +281,6 @@ def listing(environ, start_response):
     stop = page*per_page-1
     start = page*per_page-per_page
     
-    print(start, stop)
-    
     next = page+1
     previous = page-1
     
@@ -322,12 +320,8 @@ def listing_by_tag(environ, start_response):
     
     tag = new_path.split("/")[-1]
     
-    print(tag)
     if "," in tag:
         tag, page = tag.split(",", 1)
-        
-        print(tag)
-        print(page)
         
         try:
             page = int(page)

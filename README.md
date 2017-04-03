@@ -32,3 +32,7 @@ To change this, use the AppFactory class.
     >>> um = UserManager()
     >>> um.add('username', 'password')
     'username'
+    
+# Run Tests
+
+    $ python -m unittest discover
