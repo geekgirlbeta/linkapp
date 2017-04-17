@@ -187,7 +187,7 @@ class LinkManager:
                         
                     for tag in tags:
                         tag_key = 'tag:%s' % (tag,)
-                        pipe.sadd(tag_key, score, raw_id)
+                        pipe.zadd(tag_key, score, raw_id)
                
                 return pipe.execute()
         else:
