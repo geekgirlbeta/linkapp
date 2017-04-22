@@ -3,6 +3,7 @@ Module for editing links to add, delete, modify and list data submitted.
 """
 import redis
 import hashlib
+import uuid
 from datetime import datetime
 
 CREATED_TIME_FORMAT = "%m-%d-%Y @ %H:%M"
@@ -312,4 +313,132 @@ class LinkManager:
         else:
             return True
         
+class ReadingListManager:
+    """
+    Class to handle lists of links that are assigned or suggested for a user.
+    """
+    
+    def __init__(self, host="localhost", port=6379, db=0):
+        self.host = host
+        self.port = port
+        self.db = db
         
+        self.connection = redis.StrictRedis(
+            decode_responses=True,
+            host=self.host, 
+            port=self.port, 
+            db=self.db)
+        
+        
+    def key(self, user):
+        """
+        Generating the redis key for a user reading list.
+        """
+        return "list:{}".format(user)
+        
+        
+    def key_read(self, user):
+        """
+        Generating the redis key for the list of links that the user has read.
+        """
+        return "list-read:{}".format(user)
+        
+    def add(self, user, link_id):
+        """
+        Add link to existing reading list.
+        """
+        
+        created = datetime.now()
+        score = created - BEGINNING_OF_TIME
+        
+        with self.connection.pipeline() as pipe:
+            pipe.zadd(self.key(user), score.total_seconds(), link_id)
+            pipe.srem(self.key_read(user), link_id)
+            
+            pipe.execute()
+            
+            
+    def read(self, user, link_id):
+        """
+        Mark a link as read.
+        """
+        
+        self.connection.sadd(self.key_read(user), link_id)
+        
+        
+    def unread(self, user, link_id):
+        """
+        Mark a link as unread.
+        """
+        
+        self.connection.srem(self.key_read(user), link_id)
+        
+        
+    def remove(self, user, link_id):
+        """
+        Remove a link from a list.
+        """
+        
+        with self.connection.pipeline() as pipe:
+            pipe.srem(self.key_read(user), link_id)
+            pipe.zrem(self.key(user), link_id)
+        
+            pipe.execute()
+        
+        
+    def to_read(self, user, tag_func=None):   
+        
+        key = self.key(user)
+        key_read = self.key_read(user)
+        
+        with self.connection.pipeline() as pipe:
+            temp_key = "to-read:{}:temp".format(user)
+            pipe.zunionstore(temp_key, {key:1, key_read:0}, "MIN")
+            pipe.zrangebyscore(temp_key, 1, "+inf")
+            
+            pipe.delete(temp_key)
+            
+            result = pipe.execute()
+            
+            print(result)
+            
+            keys = ["link:{}".format(x) for x in result[1]] 
+            
+        with self.connection.pipeline() as pipe:
+            if tag_func:
+                pipe.set_response_callback('HGETALL', tag_func)
+            
+            for key in keys:
+                pipe.hgetall(key)
+                
+            result = pipe.execute()
+            
+            return result
+            
+            
+    def been_read(self, user, tag_func=None):   
+        
+        key = self.key(user)
+        key_read = self.key_read(user)
+        
+        with self.connection.pipeline() as pipe: 
+            temp_key = "been-read:{}:temp".format(user)
+            pipe.zunionstore(temp_key, {key:0, key_read:1}, "MIN")
+            pipe.zrangebyscore(temp_key, 1, "+inf")
+            
+            pipe.delete(temp_key)
+            
+            result = pipe.execute()
+            
+            keys = ["link:{}".format(x) for x in result[1]] 
+            
+        with self.connection.pipeline() as pipe:
+            if tag_func:
+                pipe.set_response_callback('HGETALL', tag_func)
+            
+            for key in keys:
+                pipe.hgetall(key)
+                
+            result = pipe.execute()
+            
+            return result

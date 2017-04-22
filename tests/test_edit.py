@@ -112,3 +112,14 @@ class LinkManagerTest(unittest.TestCase):
         self.assertEqual(mocked_pipe.sadd.call_count, 4)
         
     
+@patch('edit.redis.StrictRedis')
+class ReadingListManagerTest(unittest.TestCase):
+    """
+    Test suite for ReadingListManager.
+    """
+    
+    
+    
+    
+    
+    

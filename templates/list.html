@@ -9,8 +9,9 @@
 <body>
 <div class="menu">
 <ul>
-<li><a href="{{prefix}}new">Add New</a></li>
-<li><a href="{{prefix}}">Home</a></li>
+    <li><a href="{{prefix}}new">Add New</a></li>
+    <li><a href="{{prefix}}reading-list">My Reading List</a></li>
+    <li><a href="{{prefix}}">Home</a></li>
 </ul>
 </div>
 {{#tag}}
@@ -38,6 +39,9 @@
         <ul class="buttons">
             <li class="edit"><a href="{{prefix}}edit/{{key}}">edit</a></li>
             <li class="view"><a href="{{prefix}}view/{{key}}">view</a></li>
+            {{#user}}
+            <li class="view"><a href="{{prefix}}reading-list/add/{{key}}">add to reading list</a></li>
+            {{/user}}
         </ul>
     </div>
     <!-- <div class="buttons">
@@ -54,7 +58,6 @@
 
 {{#tag}}
 <ul class="page-nav">
-    
     {{#previous}}
     <li class="previous"><a href="{{prefix}}tag/{{tag}},{{previous}}">&larr; Previous</a></li>
     {{/previous}}

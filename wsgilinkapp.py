@@ -2,13 +2,14 @@ import cgi
 import io
 import pprint
 import pystache
-from edit import LinkManager
+from edit import LinkManager, ReadingListManager
 import os.path
 import mimetypes
 import base64
 import user
 import re
 import math
+from http.cookies import SimpleCookie
 
 renderer = pystache.Renderer(search_dirs='./templates', file_extension='html')
 
@@ -77,7 +78,24 @@ def hash_to_linkwrapper(response, **options):
     # equilivent to:
     #   LinkWrapper(author='admin', page_title='Testing Number Two', tags='new|test|tags', etc)
     return LinkWrapper(**attributes)
-
+    
+    
+class UserNameCookieMiddleware:
+    """
+    Makes username cookie set by AuthenticationMiddleware available in the environ.
+    """
+    def __init__(self, application):
+        self.application = application
+    
+    def __call__(self, environ, start_response):
+        if 'HTTP_COOKIE' in environ:
+            cookie = SimpleCookie(environ['HTTP_COOKIE'])
+            if 'linkapp.username' in cookie:
+                # handle the cookie value
+                environ['linkapp.username'] = cookie['linkapp.username'].value
+                
+        return self.application(environ, start_response)
+        
 class AuthenticationMiddleware:
     """
     This will wrap a wsgi app to require a username and password.
@@ -86,13 +104,22 @@ class AuthenticationMiddleware:
         self.application = application
 
     def __call__(self, environ, start_response):
+
         if 'HTTP_AUTHORIZATION' in environ:
             auth_type, hashed_pass = environ['HTTP_AUTHORIZATION'].split(' ')
             decoded = base64.b64decode(hashed_pass)
             username, password = decoded.decode('utf-8').split(':')
             if environ['linkapp.user_manager'].authenticate(username, password):
-                environ['linkapp.loggedin'] = username
-                return self.application(environ, start_response)
+                environ['linkapp.username'] = username
+                
+                def inject_cookie(status, headers, exc_info=None):
+                    cookie = SimpleCookie()
+                    cookie['linkapp.username'] = username
+                    cookie['linkapp.username']['path'] = '/'
+                    headers.append(('Set-Cookie', cookie['linkapp.username'].OutputString()))
+                    return start_response(status, headers, exc_info)
+                    
+                return self.application(environ, inject_cookie)
             else:
                 start_response('401 Unauthorized', [('Content-Type', 'text/plain'), ('WWW-Authenticate', 'Basic realm="Test Thing"')])
                 return [b'Unauthorized']
@@ -292,6 +319,7 @@ def listing(environ, start_response):
         'count': count,
         'last': last,
         'prefix': environ['linkapp.path_prefix'],
+        'user': environ.get('linkapp.username')
     }
     
     if page > 1:
@@ -353,7 +381,8 @@ def listing_by_tag(environ, start_response):
         'prefix': environ['linkapp.path_prefix'],
         'tag': tag,
         'last': last,
-        'count': count
+        'count': count,
+        'user': environ.get('linkapp.username')
     }
     
     if page > 1:
@@ -368,6 +397,9 @@ def listing_by_tag(environ, start_response):
 
     start_response('200 OK', [('Content-Type', 'text/html')])
     return [html.encode('utf-8')]
+    
+
+
     
 def static(environ, start_response):
     
@@ -408,10 +440,87 @@ def static(environ, start_response):
     else:
         start_response('404 Not Found', [('Content-Type', 'text/plain')])
         return [b'Not Found']
+        
+        
+        
+def add_to_my_reading_list(environ, start_response):
+    
+    if environ['REQUEST_METHOD'] != 'GET':
+        start_response('400 Bad Request', [('Content-Type', 'text/plain')])
+        return [b'Bad Request, Method Not Supported']
+
+    match = re.search("/([^/]{32})$", environ['PATH_INFO'])
+    
+    if not match:
+        start_response('404 Not Found', [('Content-Type', 'text/plain')])
+        return [b'Not Found']
+    
+    link = environ['linkapp.link_manager'].list_one(match.group(1))[0]
+    
+    if not link:
+        start_response('404 Not Found', [('Content-Type', 'text/plain')])
+        return [b'Not Found']
+        
+    user = environ['linkapp.username']
+    
+    environ['linkapp.rl_manager'].add(user, link["key"])
+    
+    redirect_to = 'http://%s%sreading-list' % (environ['HTTP_HOST'], environ['linkapp.path_prefix']) 
+    start_response('302 Found', [('Location', redirect_to)])
+    return [redirect_to.encode('utf-8')]
+
+def my_reading_list(environ, start_response):
+    
+    if environ['REQUEST_METHOD'] != 'GET':
+        start_response('400 Bad Request', [('Content-Type', 'text/plain')])
+        return [b'Bad Request, Method Not Supported']
+        
+    user = environ['linkapp.username']
+    context = {
+        "user":user,
+        'prefix': environ['linkapp.path_prefix'],
+        "links": environ['linkapp.rl_manager'].to_read(user, tag_func=hash_to_linkwrapper)
+    }
+    html = renderer.render_name('reading-list', context)
+    
+    
+    
+    start_response('200 OK', [('Content-Type', 'text/html')])
+    return [html.encode('utf-8')]
+    
+
+def mark_read(environ, start_response):
+    
+    if environ['REQUEST_METHOD'] != 'GET':
+        start_response('400 Bad Request', [('Content-Type', 'text/plain')])
+        return [b'Bad Request, Method Not Supported']
+
+    match = re.search("/([^/]{32})$", environ['PATH_INFO'])
+    
+    if not match:
+        start_response('404 Not Found', [('Content-Type', 'text/plain')])
+        return [b'Not Found']
+    
+    link = environ['linkapp.link_manager'].list_one(match.group(1))[0]
+    
+    if not link:
+        start_response('404 Not Found', [('Content-Type', 'text/plain')])
+        return [b'Not Found']
+        
+    user = environ['linkapp.username']
+    
+    environ['linkapp.rl_manager'].read(user, link["key"])
+    
+    redirect_to = 'http://%s%sreading-list' % (environ['HTTP_HOST'], environ['linkapp.path_prefix']) 
+    start_response('302 Found', [('Location', redirect_to)])
+    return [redirect_to.encode('utf-8')]
 
 auth_new = AuthenticationMiddleware(new)
 auth_save = AuthenticationMiddleware(save)
 auth_edit = AuthenticationMiddleware(edit)
+auth_add_to_my_reading_list = AuthenticationMiddleware(add_to_my_reading_list)
+auth_mark_read = AuthenticationMiddleware(mark_read)
+auth_my_reading_list = AuthenticationMiddleware(my_reading_list)
     
 def main(environ, start_response):
     if check_path(environ, ""):
@@ -430,6 +539,12 @@ def main(environ, start_response):
         return auth_edit(environ, start_response)
     elif check_path(environ, "view", True):
         return one_post(environ, start_response)
+    elif check_path(environ, "reading-list", False):
+        return auth_my_reading_list(environ, start_response)
+    elif check_path(environ, "reading-list/add", True):
+        return auth_add_to_my_reading_list(environ, start_response)
+    elif check_path(environ, "reading-list/read", True):
+        return auth_mark_read(environ, start_response)
     else:
         start_response('404 Not Found', [('Content-Type', 'text/plain')])
         return [b'Not Found']
@@ -442,14 +557,17 @@ class AppFactory:
     def __init__(self, redis_host='localhost', redis_port=6379, redis_db=0, path_prefix="/linkapp/"):
         self.link_manager = LinkManager(redis_host, redis_port, redis_db)
         self.um = user.UserManager(redis_host, redis_port, redis_db)
+        self.rl = ReadingListManager(redis_host, redis_port, redis_db)
         self.path_prefix = path_prefix
         
     def __call__(self, environ, start_response):
         environ['linkapp.link_manager'] = self.link_manager
+        environ['linkapp.rl_manager'] = self.rl
         environ['linkapp.path_prefix'] = self.path_prefix
         environ['linkapp.user_manager'] = self.um 
         
-        return main(environ, start_response)
+        with_cookies = UserNameCookieMiddleware(main)
+        return with_cookies(environ, start_response)
         
         
 

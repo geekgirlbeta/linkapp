@@ -71,6 +71,8 @@ ul.buttons {
 
 .buttons li {
     display: inline;
+    border: 1px #000000 solid;
+    padding: 0.1em;
 }
 
 .tags a:link {
