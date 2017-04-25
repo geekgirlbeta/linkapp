@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>List</title>
+<link rel="stylesheet" type="text/css" href="{{prefix}}static/style.css" />
+</head>
+
+<body>
+<div class="menu">
+<ul>
+    <li><a href="{{prefix}}">Home</a></li>
+</ul>
+</div>
+
+<h1>Reading List: <em>{{user}}</em></h1>
+
+<div class="links">
+{{#links}}
+<div class="entry">
+    <h1><a href="{{url_address}}" target="_blank">{{page_title}}</a></h1>
+    <p><div class="desc">{{desc_text}}</div></p>
+    <p>
+        <span class="tags">
+            {{#tags}}
+                <a href="{{prefix}}tag/{{name}}">{{name}}</a>
+            {{/tags}}
+        </span>
+        <span class="author">{{author}} {{created}}</span>
+    </p>
+    <div>
+        <ul class="buttons">
+            <li class="edit"><a href="{{prefix}}edit/{{key}}">edit</a></li>
+            <li class="view"><a href="{{prefix}}view/{{key}}">view</a></li>
+            <li class="view"><a href="{{prefix}}reading-list/read/{{key}}">mark as read</a></li>
+        </ul>
+    </div>
+    <!-- <div class="buttons">
+        <div class="edit"><a href="{{prefix}}edit/{{key}}">edit</a></div>
+        <div class="view"><a href="{{prefix}}view/{{key}}">view</a></div>
+    </div> -->
+</div>
+{{/links}}
+</div>
