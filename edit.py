@@ -400,8 +400,6 @@ class ReadingListManager:
             
             result = pipe.execute()
             
-            print(result)
-            
             keys = ["link:{}".format(x) for x in result[1]] 
             
         with self.connection.pipeline() as pipe:

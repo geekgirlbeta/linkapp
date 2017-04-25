@@ -109,7 +109,7 @@ class LinkManagerTest(unittest.TestCase):
         mocked_pipe.hmset.assert_called_with("link:mocked_id", expected)
         
         self.assertEqual(mocked_pipe.zrem.call_count, 3)
-        self.assertEqual(mocked_pipe.sadd.call_count, 4)
+        self.assertEqual(mocked_pipe.zadd.call_count, 4)
         
     
 @patch('edit.redis.StrictRedis')
