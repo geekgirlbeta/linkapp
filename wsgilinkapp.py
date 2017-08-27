@@ -272,7 +272,7 @@ def save(environ, start_response):
                 desc_text=desc_text, 
                 url_address=url_address, 
                 tags=process_tags, 
-                author=environ['linkapp.loggedin'])
+                author=environ['linkapp.username'])
         else:
             
             environ['linkapp.link_manager'].add(
@@ -280,7 +280,7 @@ def save(environ, start_response):
                 desc_text=desc_text, 
                 url_address=url_address, 
                 tags=process_tags, 
-                author=environ['linkapp.loggedin'])
+                author=environ['linkapp.username'])
         
         redirect_to = 'http://%s%s' % (environ['HTTP_HOST'], environ['linkapp.path_prefix']) 
         start_response('302 Found', [('Location', redirect_to)])
