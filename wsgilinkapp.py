@@ -10,6 +10,8 @@ import user
 import re
 import math
 from http.cookies import SimpleCookie
+from beaker.middleware import SessionMiddleware
+
 
 renderer = pystache.Renderer(search_dirs='./templates', file_extension='html')
 
@@ -80,22 +82,6 @@ def hash_to_linkwrapper(response, **options):
     return LinkWrapper(**attributes)
     
     
-class UserNameCookieMiddleware:
-    """
-    Makes username cookie set by AuthenticationMiddleware available in the environ.
-    """
-    def __init__(self, application):
-        self.application = application
-    
-    def __call__(self, environ, start_response):
-        if 'HTTP_COOKIE' in environ:
-            cookie = SimpleCookie(environ['HTTP_COOKIE'])
-            if 'linkapp.username' in cookie:
-                # handle the cookie value
-                environ['linkapp.username'] = cookie['linkapp.username'].value
-                
-        return self.application(environ, start_response)
-        
 class AuthenticationMiddleware:
     """
     This will wrap a wsgi app to require a username and password.
@@ -104,26 +90,26 @@ class AuthenticationMiddleware:
         self.application = application
 
     def __call__(self, environ, start_response):
+        
+        session = environ['beaker.session']
 
         if 'HTTP_AUTHORIZATION' in environ:
             auth_type, hashed_pass = environ['HTTP_AUTHORIZATION'].split(' ')
             decoded = base64.b64decode(hashed_pass)
             username, password = decoded.decode('utf-8').split(':')
             if environ['linkapp.user_manager'].authenticate(username, password):
-                environ['linkapp.username'] = username
                 
-                def inject_cookie(status, headers, exc_info=None):
-                    cookie = SimpleCookie()
-                    cookie['linkapp.username'] = username
-                    cookie['linkapp.username']['path'] = '/'
-                    headers.append(('Set-Cookie', cookie['linkapp.username'].OutputString()))
-                    return start_response(status, headers, exc_info)
-                    
-                return self.application(environ, inject_cookie)
+                session['logged_in'] = True
+                session['username'] = username
+                
+                return self.application(environ, start_response)
+                
             else:
+                session['logged_in'] = False
                 start_response('401 Unauthorized', [('Content-Type', 'text/plain'), ('WWW-Authenticate', 'Basic realm="Test Thing"')])
                 return [b'Unauthorized']
         else:
+            session['logged_in'] = False
             start_response('401 Unauthorized', [('Content-Type', 'text/plain'), ('WWW-Authenticate', 'Basic realm="Test Thing"')])
             return [b'Unauthorized']
 
@@ -272,7 +258,7 @@ def save(environ, start_response):
                 desc_text=desc_text, 
                 url_address=url_address, 
                 tags=process_tags, 
-                author=environ['linkapp.username'])
+                author=environ['beaker.session']['username'])
         else:
             
             environ['linkapp.link_manager'].add(
@@ -280,7 +266,7 @@ def save(environ, start_response):
                 desc_text=desc_text, 
                 url_address=url_address, 
                 tags=process_tags, 
-                author=environ['linkapp.username'])
+                author=environ['beaker.session']['username'])
         
         redirect_to = 'http://%s%s' % (environ['HTTP_HOST'], environ['linkapp.path_prefix']) 
         start_response('302 Found', [('Location', redirect_to)])
@@ -319,7 +305,6 @@ def listing(environ, start_response):
         'count': count,
         'last': last,
         'prefix': environ['linkapp.path_prefix'],
-        'user': environ.get('linkapp.username')
     }
     
     if page > 1:
@@ -382,7 +367,6 @@ def listing_by_tag(environ, start_response):
         'tag': tag,
         'last': last,
         'count': count,
-        'user': environ.get('linkapp.username')
     }
     
     if page > 1:
@@ -461,7 +445,7 @@ def add_to_my_reading_list(environ, start_response):
         start_response('404 Not Found', [('Content-Type', 'text/plain')])
         return [b'Not Found']
         
-    user = environ['linkapp.username']
+    user = environ['beaker.session']['username']
     
     environ['linkapp.rl_manager'].add(user, link["key"])
     
@@ -475,7 +459,7 @@ def my_reading_list(environ, start_response):
         start_response('400 Bad Request', [('Content-Type', 'text/plain')])
         return [b'Bad Request, Method Not Supported']
         
-    user = environ['linkapp.username']
+    user = environ['beaker.session']['username']
     context = {
         "user":user,
         'prefix': environ['linkapp.path_prefix'],
@@ -507,7 +491,7 @@ def mark_read(environ, start_response):
         start_response('404 Not Found', [('Content-Type', 'text/plain')])
         return [b'Not Found']
         
-    user = environ['linkapp.username']
+    user = environ['beaker.session']['username']
     
     environ['linkapp.rl_manager'].read(user, link["key"])
     
@@ -554,11 +538,19 @@ class AppFactory:
     Configure and return the main WSGI app for this application.
     """
     
-    def __init__(self, redis_host='localhost', redis_port=6379, redis_db=0, path_prefix="/linkapp/"):
+    def __init__(self, redis_host='localhost', redis_port=6379, redis_db=0, path_prefix="/linkapp/", session_opts=None):
         self.link_manager = LinkManager(redis_host, redis_port, redis_db)
         self.um = user.UserManager(redis_host, redis_port, redis_db)
         self.rl = ReadingListManager(redis_host, redis_port, redis_db)
         self.path_prefix = path_prefix
+        
+        if session_opts is None:
+            session_opts = {
+                'session.cookie_expires': True,
+                'session.auto': True
+            }
+            
+        self.session_opts = session_opts
         
     def __call__(self, environ, start_response):
         environ['linkapp.link_manager'] = self.link_manager
@@ -566,8 +558,8 @@ class AppFactory:
         environ['linkapp.path_prefix'] = self.path_prefix
         environ['linkapp.user_manager'] = self.um 
         
-        with_cookies = UserNameCookieMiddleware(main)
-        return with_cookies(environ, start_response)
+        app = SessionMiddleware(main, self.session_opts)
+        return app(environ, start_response)
         
         
 
