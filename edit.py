@@ -4,10 +4,13 @@ Module for editing links to add, delete, modify and list data submitted.
 import redis
 import hashlib
 import uuid
+import random
+from hashids import Hashids
 from datetime import datetime
 
 CREATED_TIME_FORMAT = "%m-%d-%Y @ %H:%M"
 BEGINNING_OF_TIME = datetime(1975, 11, 16, 20, 12, 0)
+
 
 def pipeline_monkeypatch(self, transaction=True, shard_hint=None):
         """
@@ -39,23 +42,31 @@ class LinkManager:
         """Put the prefix on the key"""
         return "link:%s" % (raw_id,)
         
-    def key(self, url_address):
-        """Generate a database key and hashed id based on the URL"""
-        hashed = hashlib.md5(url_address.encode('utf-8')).hexdigest()
+    def key(self):
+        """Generate a database key and hashed ID using Hashids."""
         
-        raw_id = hashed
-        redis_key = self.prefix_key(hashed)
+        hashed = Hashids()
+        
+        raw_id = hashed.encode(random.randint(0, 256), random.randint(0, 256), random.randint(0, 256))
+        
+        redis_key = self.prefix_key(raw_id)
         
         return raw_id, redis_key
         
         
     def add(self, page_title, desc_text, url_address, author, tags, created=None):
         """Add link to the database."""
-        raw_id, redis_key = self.key(url_address)
         
+        if self.url_exists(url_address):
+            raise Exception("URL '%s' exists" % (url_address,))
+        
+        raw_id, redis_key = self.key()
+        
+        # if created does not exist then a datetime object will be created at that moment.
         if created is None:
             created = datetime.now()
         
+        # an Exception will be raised if the tags object is passed a string.
         if isinstance(tags, str):
             raise Exception('Tags must be a list, set, tuple, etc.')
             
@@ -88,6 +99,9 @@ class LinkManager:
                 
             pipe.zadd("sorted:date", score.total_seconds(), raw_id)
             
+            #because this is a set it will not add a duplicate
+            pipe.sadd("url_hold", url_address)
+            
             pipe.execute()
             
         return raw_id
@@ -96,41 +110,27 @@ class LinkManager:
     def delete(self, raw_id):
         """Deleting a link from the database."""
         
+        url_to_be_deleted = self.connection.hmget(self.prefix_key(raw_id), "url_address")[0]
+        
+        
+        # get the tags from a particular listing and preform a split on the "|", tags are in the variable 'tags'
         tags = self.connection.hmget(self.prefix_key(raw_id), "tags")[0]
         tags = tags.split("|")
         
         # TODO: Consider adding a watch on the link key during deletion.
+        # creating a pipeline with the connection and setting it to pipe.
         with self.connection.pipeline() as pipe:
+            #for a particular tag from the above tags, removing them from the link with this raw_id
             for tag in tags:
                 pipe.zrem('tag:%s' % (tag,), raw_id)
-                
+            
+            
+            # using the pipe, preforming the redis delete command on this raw_id.
             pipe.delete(self.prefix_key(raw_id))
             pipe.zrem("sorted:date", raw_id)
+            pipe.srem("url_hold", url_to_be_deleted)
             pipe.execute() 
             
-        
-    def rename(self, raw_id, new_url):
-        """
-        Delete and re-add a link when the url has changed.
-        
-        TODO: this is only temporary, we will switch to using a random key ASAP.
-        """
-        existing = self.list_one(raw_id)[0]
-        
-        self.delete(raw_id)
-        
-        created = datetime.strptime(existing['created'], CREATED_TIME_FORMAT)
-        tags = existing['tags'].split("|")
-        
-        return self.add(page_title=existing['page_title'], 
-                        desc_text=existing['desc_text'], 
-                        url_address=new_url, 
-                        author=existing['author'], 
-                        tags=tags, 
-                        created=created)
-        
-        
-        
     def modify(self, raw_id, page_title=None, desc_text=None, url_address=None, author=None, created=None, tags=None):
         """Modify an existing link in the database."""
         # TODO: REFACTOR THIS LIKE WOAH
@@ -299,19 +299,20 @@ class LinkManager:
         """
         Return True if there is a link in the database with the given url
         """
-        raw_id, key = self.key(url_address)
-        
-        return self.exists(raw_id)
-        
-    def url_changed(self, raw_id, url_address):
-        """
-        Returns True if the provided url is different than the one used to generate the raw_id
-        """
-        comp_id, junk = self.key(url_address)
-        if comp_id == raw_id:
-            return False
-        else:
+        if self.connection.sismember("url_hold", url_address):
             return True
+        else:
+            return False
+        
+    # def url_changed(self, raw_id, url_address):
+        # """
+        # Returns True if the provided url is different than the one used to generate the raw_id
+        # """
+        # comp_id, junk = self.key(url_address)
+        # if comp_id == raw_id:
+            # return False
+        # else:
+            # return True
         
 class ReadingListManager:
     """
