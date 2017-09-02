@@ -135,6 +135,8 @@ class LinkManager:
         """Modify an existing link in the database."""
         # TODO: REFACTOR THIS LIKE WOAH
         
+        url_to_be_modified = self.connection.hmget(self.prefix_key(raw_id), "url_address")[0]
+        
         fields = {}
         
         if page_title is not None:
@@ -164,9 +166,8 @@ class LinkManager:
             
         if fields:
             if fields.get("url_address", None):
-                comp_id, junk = self.key(url_address)
-                if comp_id != raw_id:
-                    raw_id = self.rename(raw_id, url_address)
+                if self.url_exists(url_address):
+                    raise Exception("URL '%s' exists" % (url_address,))
                 
             # TODO: consider doing this in the pipeline and putting a watch on the
             #       link's key in case it changes during processing.
@@ -181,6 +182,11 @@ class LinkManager:
             with self.connection.pipeline() as pipe:
                 pipe.hmset(self.prefix_key(raw_id), fields)
                 
+                if fields.get("url_address", None):
+                    if url_to_be_modified != fields["url_address"]:
+                        pipe.srem("url_hold", url_to_be_modified)
+                        pipe.sadd("url_hold", fields["url_address"])
+                    
                 if fields.get("tags", None):
                     for existing_tag in old_tags:
                         tag_key = 'tag:%s' % (existing_tag,)
@@ -304,15 +310,6 @@ class LinkManager:
         else:
             return False
         
-    # def url_changed(self, raw_id, url_address):
-        # """
-        # Returns True if the provided url is different than the one used to generate the raw_id
-        # """
-        # comp_id, junk = self.key(url_address)
-        # if comp_id == raw_id:
-            # return False
-        # else:
-            # return True
         
 class ReadingListManager:
     """
