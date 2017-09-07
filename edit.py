@@ -166,8 +166,9 @@ class LinkManager:
             
         if fields:
             if fields.get("url_address", None):
-                if self.url_exists(url_address):
-                    raise Exception("URL '%s' exists" % (url_address,))
+                if url_to_be_modified != fields["url_address"]:
+                    if self.url_exists(url_address):
+                        raise Exception("URL '%s' exists" % (url_address,))
                 
             # TODO: consider doing this in the pipeline and putting a watch on the
             #       link's key in case it changes during processing.
@@ -200,6 +201,16 @@ class LinkManager:
         else:
             return None
             
+        
+    def url_changed(self, raw_id, url_address):
+        
+        old_url = self.connection.hmget(self.prefix_key(raw_id), "url_address")[0]
+        
+        if url_address != old_url:
+            return True
+        else:
+            return False
+        
         
     def list_one(self, raw_id, tag_func=None):
         """Retrieves a single link from the database

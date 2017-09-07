@@ -138,7 +138,7 @@ def edit(environ, start_response):
         start_response('400 Bad Request', [('Content-Type', 'text/plain')])
         return [b'Bad Request, Method Not Supported']
 
-    match = re.search("/([^/]{32})$", environ['PATH_INFO'])
+    match = re.search("/([^/]+)$", environ['PATH_INFO'])
     
     if not match:
         start_response('404 Not Found', [('Content-Type', 'text/plain')])
@@ -165,7 +165,7 @@ def one_post(environ, start_response):
         start_response('400 Bad Request', [('Content-Type', 'text/plain')])
         return [b'Bad Request, Method Not Supported']
 
-    match = re.search("/([^/]{32})$", environ['PATH_INFO'])
+    match = re.search("/([^/]+)$", environ['PATH_INFO'])
     
     if not match:
         start_response('404 Not Found', [('Content-Type', 'text/plain')])
@@ -192,7 +192,7 @@ def save(environ, start_response):
     
     # if there's a key presented after /save, we need to use modify(), since
     # we're changing a link. Otherwise, we need to use add()
-    theres_a_key = re.search("/([^/]{32})$", environ['PATH_INFO'])
+    theres_a_key = re.search("/([^/]+)$", environ['PATH_INFO'])
     
     if theres_a_key:
         key = theres_a_key.group(1)
